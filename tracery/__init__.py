@@ -151,7 +151,13 @@ class NodeAction(object):  # has a 'raw' attribute
 
 
 class RuleSet(object):
-    def __init__(self, grammar, raw):
+    def __init__(self, grammar, raw, rand=None):
+
+        if not rand:
+            self.random = random
+        else:
+            self.random = rand
+
         self.raw = raw
         self.grammar = grammar
         self.default_uses = []
@@ -162,23 +168,28 @@ class RuleSet(object):
         else:
             self.default_rules = []
 
+
+
     def select_rule(self):
         # in kate's code there's a bunch of stuff for different methods of
         # selecting a rule, none of which seem to be implemented yet! so for
         # now I'm just going to ...
-        return random.choice(self.default_rules)
+        return self.random.choice(self.default_rules)
 
     def clear_state(self):
         self.default_uses = []
 
 
 class Symbol(object):
-    def __init__(self, grammar, key, raw_rules):
+    def __init__(self, grammar, key, raw_rules, rand=None):
+        self.random = rand
         self.grammar = grammar
         self.key = key
         self.raw_rules = raw_rules
-        self.base_rules = RuleSet(grammar, raw_rules)
+        self.base_rules = RuleSet(grammar, raw_rules, self.random)
         self.clear_state()
+
+
 
     def clear_state(self):
         self.stack = [self.base_rules]
@@ -186,7 +197,7 @@ class Symbol(object):
         self.base_rules.clear_state()
 
     def push_rules(self, raw_rules):
-        rules = RuleSet(self.grammar, raw_rules)
+        rules = RuleSet(self.grammar, raw_rules, self.random)
         self.stack.append(rules)
 
     def pop_rules(self):
@@ -206,12 +217,15 @@ class Symbol(object):
 
 
 class Grammar(object):
-    def __init__(self, raw, settings=None):
+    def __init__(self, raw, settings=None, rand=None):
+        self.random = rand
         self.modifiers = {}
         self.load_from_raw_obj(raw)
         self.errors = []
         if settings is None:
             self.settings = {}
+
+
 
     def clear_state(self):
         for val in self.symbols.values():
@@ -227,7 +241,7 @@ class Grammar(object):
         self.symbols = dict()
         self.subgrammars = list()
         if raw:
-            self.symbols = dict((k, Symbol(self, k, v)) for k, v in raw.items())
+            self.symbols = dict((k, Symbol(self, k, v, rand=self.random)) for k, v in raw.items())
 
     def create_root(self, rule):
         return Node(self, 0, {'type': -1, 'raw': rule})
@@ -246,7 +260,7 @@ class Grammar(object):
 
     def push_rules(self, key, raw_rules, source_action=None):
         if key not in self.symbols:
-            self.symbols[key] = Symbol(self, key, raw_rules)
+            self.symbols[key] = Symbol(self, key, raw_rules, rand=self.random)
         else:
             self.symbols[key].push_rules(raw_rules)
 
